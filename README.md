@@ -81,6 +81,24 @@ someone is safe.
 
 ## Roadmap
 
+### Implemented provider foundation
+
+`app/lib/breachProvider.mjs` implements the free XposedOrNot email-check
+contract documented at https://xposedornot.com/api_doc (checked 2026-10-27).
+It accepts a trusted, unexpired backend identity, encodes the address, disables
+caching, enforces a timeout and distinguishes missing results from provider
+failures. Results contain breach names only; this endpoint does not justify
+inventing dates, data categories or scoring evidence.
+
+Run `npm run test:unit` for six offline contract and failure-path tests. These
+tests do not submit any address to an external service.
+
+The adapter is intentionally not exposed as an HTTP endpoint yet. Before wiring
+it to the UI, implement server-issued verification bound to the email, expiring
+sessions, request throttling and a production mail transport. The public demo
+code must never create the trusted identity accepted by this adapter. A result
+of `not_found` means only that this provider returned no known record.
+
 1. Add a verified-email backend and XposedOrNot adapter.
 2. Add encrypted, opt-in scan history with automatic deletion.
 3. Expand entity detection with a small multilingual NER model and keep the
