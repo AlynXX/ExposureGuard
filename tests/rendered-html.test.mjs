@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${path}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -21,6 +21,13 @@ async function render() {
     },
   );
 }
+
+test("built Worker reports live mode unavailable without runtime configuration", async () => {
+  const response = await render('/api/live/status');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { available: false });
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+});
 
 test("server-renders the ExposureGuard product shell", async () => {
   const response = await render();

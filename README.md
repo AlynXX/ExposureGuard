@@ -99,7 +99,8 @@ sessions, request throttling and a production mail transport. The public demo
 code must never create the trusted identity accepted by this adapter. A result
 of `not_found` means only that this provider returned no known record.
 
-1. Add a verified-email backend and XposedOrNot adapter.
+1. Configure the implemented verified-email backend and XposedOrNot adapter;
+   see [email verification](docs/email-verification.md).
 2. Add encrypted, opt-in scan history with automatic deletion.
 3. Expand entity detection with a small multilingual NER model and keep the
    regex/validator layer as evidence.

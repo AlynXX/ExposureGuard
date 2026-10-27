@@ -18,6 +18,7 @@ import {
   scanText,
 } from "./lib/exposure";
 import { scanFile } from "./lib/fileScanner";
+import LiveBreachCheck from "./LiveBreachCheck";
 
 type View = "audit" | "report" | "privacy";
 
@@ -563,6 +564,7 @@ export default function ExposureGuardApp() {
               </div>
             </section>
 
+            <LiveBreachCheck language={language} />
             <section className="audit-card">
               <div className="card-number">03</div>
               <div className="card-content">
