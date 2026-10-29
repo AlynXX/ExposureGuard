@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 export default function LiveBreachCheck({ language }: { language: "pl" | "en" }) {
   const pl = language === "pl";
   const [available, setAvailable] = useState(false);
+  const [mailProvider, setMailProvider] = useState('');
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [code, setCode] = useState("");
@@ -14,7 +15,7 @@ export default function LiveBreachCheck({ language }: { language: "pl" | "en" })
   const [result, setResult] = useState<{ status: string; breaches: { name: string }[] } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/live/status', { signal: controller.signal, cache: 'no-store' }).then(r => r.json()).then(data => setAvailable(data.available === true)).catch(() => {});
+    fetch('/api/live/status', { signal: controller.signal, cache: 'no-store' }).then(r => r.json()).then(data => { setAvailable(data.available === true); setMailProvider(data.mailProvider === 'gmail' ? 'Gmail (Google)' : 'Resend'); }).catch(() => {});
     return () => controller.abort();
   }, []);
   async function action(kind: string) {
@@ -47,7 +48,7 @@ export default function LiveBreachCheck({ language }: { language: "pl" | "en" })
       {!available ? <p role="status">{pl ? 'Tryb live czeka na konfigurację poczty. Poniżej możesz korzystać z bezpiecznego demo.' : 'Live mode awaits email configuration. You can use the safe demo below.'}</p> : <>
         {!verified && <>
           <label>{pl ? 'Twój adres e-mail' : 'Your email address'}<input type="email" value={email} disabled={busy || !!challenge} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label>
-          <label><input type="checkbox" checked={consent} disabled={busy || !!challenge} onChange={e => setConsent(e.target.checked)} />{pl ? 'To moja skrzynka. Zgadzam się na wysłanie kodu przez Resend i sprawdzenie adresu w XposedOrNot.' : 'I own this inbox. I agree to code delivery via Resend and address lookup via XposedOrNot.'}</label>
+          <label><input type="checkbox" checked={consent} disabled={busy || !!challenge} onChange={e => setConsent(e.target.checked)} />{pl ? `To moja skrzynka. Zgadzam się na wysłanie kodu przez ${mailProvider} i sprawdzenie adresu w XposedOrNot.` : `I own this inbox. I agree to code delivery via ${mailProvider} and address lookup via XposedOrNot.`}</label>
           {!challenge ? <button className="button button-primary" disabled={busy || !consent || !email.trim()} onClick={() => action('request')}>{pl ? 'Wyślij kod' : 'Send code'}</button> : <>
             <p>{pl ? 'Kod jest ważny przez 10 minut. Masz 5 prób.' : 'The code is valid for 10 minutes. You have 5 attempts.'}</p>
             <label>{pl ? 'Kod z wiadomości' : 'Email code'}<input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" /></label>

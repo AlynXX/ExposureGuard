@@ -52,6 +52,10 @@ own key.
 
 ## Local development
 
+For free sending from a dedicated Gmail account without buying a domain, follow
+the [Gmail API setup guide](docs/gmail-setup.pl.md). Sender addresses and OAuth
+credentials belong in runtime configuration, not in this repository.
+
 Requirements: Node.js 22.13 or newer.
 
 ```powershell

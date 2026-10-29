@@ -6,6 +6,10 @@ import { handleVerification } from "../app/lib/verification.mjs";
 interface Env {
   DB?: unknown;
   RESEND_API_KEY?: string;
+  MAIL_PROVIDER?: string;
+  GMAIL_CLIENT_ID?: string;
+  GMAIL_CLIENT_SECRET?: string;
+  GMAIL_REFRESH_TOKEN?: string;
   MAIL_FROM?: string;
   VERIFICATION_SECRET?: string;
   ASSETS: Fetcher;

@@ -1,4 +1,6 @@
 import { checkVerifiedEmail, normalizeEmail } from './breachProvider.mjs';
+import { mailConfigured, mailProvider, sendCode } from './mail.mjs';
+export { sendCode } from './mail.mjs';
 
 export const CODE_TTL = 10 * 60_000;
 export const SESSION_TTL = 15 * 60_000;
@@ -12,21 +14,13 @@ export function generateCode() {
   do { crypto.getRandomValues(data); } while (data[0] >= 4294000000);
   return String(data[0] % 1000000).padStart(6, '0');
 }
-export async function sendCode(env, email, code, fetcher = fetch) {
-  const response = await fetcher('https://api.resend.com/emails', {
-    method: 'POST', signal: AbortSignal.timeout(8000),
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM, to: [email], subject: 'ExposureGuard — kod weryfikacyjny / verification code', text: `Kod / Code: ${code}\nWażny przez 10 minut / Valid for 10 minutes.\nNie udostępniaj kodu / Do not share this code.\nJeśli nie prosisz o sprawdzenie wycieków, zignoruj wiadomość. / If you did not request a breach check, ignore this message.` }),
-  });
-  if (!response.ok) throw new Error('MAIL_UNAVAILABLE');
-}
 function reply(body, status = 200, extra = {}) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...extra } });
 }
 export async function handleVerification(request, env, dependencies = {}) {
-  const ready = !!(env.DB && env.RESEND_API_KEY && env.MAIL_FROM && env.VERIFICATION_SECRET?.length >= 32);
+  const ready = !!(env.DB && mailConfigured(env) && env.VERIFICATION_SECRET?.length >= 32);
   const url = new URL(request.url);
-  if (url.pathname === '/api/live/status' && request.method === 'GET') return reply({ available: ready });
+  if (url.pathname === '/api/live/status' && request.method === 'GET') return reply(ready ? { available: true, mailProvider: mailProvider(env) } : { available: false });
   if (!ready) return reply({ error: 'NOT_CONFIGURED' }, 503);
   if (request.method !== 'POST') return reply({ error: 'METHOD_NOT_ALLOWED' }, 405);
   if (request.headers.get('origin') !== url.origin) return reply({ error: 'ORIGIN_REJECTED' }, 403);
