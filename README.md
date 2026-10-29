@@ -24,6 +24,19 @@ flow be tested without exposing anyone's data.
 
 ## Privacy and safety
 
+### Scanner coverage
+
+The text scanner validates PESEL checksums and encoded calendar dates, applies
+Luhn checks to card candidates and rejects repeated-digit placeholders. Numeric
+fragments inside detected identifiers are not counted again as phones. Dates
+require nearby birth-related wording and a valid calendar date. This reduces
+false positives but can miss dates without explicit context.
+
+IBAN detection currently supports PL, DE, GB and FR formats with a mod-97
+checksum. Telephone detection targets Polish nine-digit numbers, optionally
+prefixed with +48. Other country formats require additional rules. These
+heuristics identify candidates for review, not verified identities or accounts.
+
 - Text pasted into the demo stays in browser state.
 - Files are processed in the browser and are not uploaded by application code.
 - Raw breach rows and passwords are never displayed or collected.

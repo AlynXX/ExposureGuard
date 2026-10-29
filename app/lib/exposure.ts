@@ -172,6 +172,13 @@ export function maskValue(type: FindingType, value: string): string {
 
 function isValidPesel(value: string) {
   if (!/^\d{11}$/.test(value)) return false;
+  const encodedMonth = Number(value.slice(2, 4));
+  const century = Math.floor(encodedMonth / 20);
+  const centuries: Record<number, number> = { 0: 1900, 1: 2000, 2: 2100, 3: 2200, 4: 1800 };
+  const year = centuries[century] + Number(value.slice(0, 2));
+  const month = encodedMonth % 20;
+  const day = Number(value.slice(4, 6));
+  if (!isCalendarDate(year, month, day)) return false;
   const weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
   const sum = weights.reduce((acc, weight, index) => acc + Number(value[index]) * weight, 0);
   return (10 - (sum % 10)) % 10 === Number(value[10]);
@@ -193,6 +200,7 @@ function isValidIban(value: string) {
 function isValidCard(value: string) {
   const digits = value.replace(/\D/g, "");
   if (digits.length < 13 || digits.length > 19) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
   let sum = 0;
   let double = false;
   for (let index = digits.length - 1; index >= 0; index -= 1) {
@@ -214,16 +222,16 @@ type Pattern = {
   validator?: (value: string) => boolean;
 };
 
+function isCalendarDate(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 const PATTERNS: Pattern[] = [
   {
     type: "EMAIL",
     regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
     confidence: 0.99,
-  },
-  {
-    type: "PHONE",
-    regex: /(?<!\d)(?:\+48[\s-]?)?(?:\d[\s-]?){9}(?!\d)/g,
-    confidence: 0.91,
   },
   {
     type: "PESEL",
@@ -233,7 +241,7 @@ const PATTERNS: Pattern[] = [
   },
   {
     type: "IBAN",
-    regex: /\b[A-Z]{2}\d{2}(?:[\s]?[A-Z0-9]){10,30}\b/gi,
+    regex: /\b(?:PL\d{2}(?: ?\d){24}|DE\d{2}(?: ?\d){18}|GB\d{2} ?[A-Z]{4}(?: ?\d){14}|FR\d{2}(?: ?\d){10}(?: ?[A-Z0-9]){11}(?: ?\d){2})(?![A-Z0-9])/gi,
     confidence: 0.98,
     validator: isValidIban,
   },
@@ -252,11 +260,21 @@ const PATTERNS: Pattern[] = [
     type: "DATE_OF_BIRTH",
     regex: /\b(?:0?[1-9]|[12]\d|3[01])[./-](?:0?[1-9]|1[0-2])[./-](?:19|20)\d{2}\b/g,
     confidence: 0.76,
+    validator: (value) => {
+      const [day, month, year] = value.split(/[./-]/).map(Number);
+      return isCalendarDate(year, month, day);
+    },
   },
   {
     type: "USERNAME",
     regex: /(?<!\w)@[A-Za-z0-9_.]{3,30}\b/g,
     confidence: 0.82,
+  },
+  {
+    type: "PHONE",
+    regex: /(?<![\d+])(?:\+48[ -]?)?(?:\d[ -]?){8}\d(?!\d)/g,
+    confidence: 0.91,
+    validator: (value) => !/^(\d)\1+$/.test(value.replace(/\D/g, "")),
   },
 ];
 
@@ -281,14 +299,23 @@ const CONTEXT_PATTERNS: Array<{ type: FindingType; regex: RegExp; confidence: nu
 export function scanText(text: string, source: Finding["source"] = "text"): Finding[] {
   const findings: Finding[] = [];
   const seen = new Set<string>();
+  const occupied: Array<{ start: number; end: number; type: FindingType }> = [];
 
   for (const pattern of PATTERNS) {
     for (const match of text.matchAll(pattern.regex)) {
       const value = match[0].trim();
-      const normalized = value.replace(/\s/g, "").toLowerCase();
+      const position = match.index ?? 0;
+      // A card, bank account or email may contain number-like or @-like fragments.
+      if (occupied.some(span => position < span.end && position + value.length > span.start &&
+        (pattern.type === "PHONE" || pattern.type === "CARD" || pattern.type === "USERNAME"))) continue;
+      if (pattern.type === "PHONE" && (/\d[ -]$/.test(text.slice(0, position)) || /^[ -]\d/.test(text.slice(position + value.length)))) continue;
+      if (pattern.type === "DATE_OF_BIRTH" && !/(?:urodz|urodzeni|birth|born|dob\b)/i.test(text.slice(Math.max(0, position - 50), position))) continue;
+      const normalized = (["PHONE", "CARD", "IBAN"].includes(pattern.type)
+        ? value.replace(/[ -]/g, "") : value).toLowerCase();
       const key = `${pattern.type}:${normalized}`;
       if (seen.has(key) || (pattern.validator && !pattern.validator(value))) continue;
       seen.add(key);
+      occupied.push({ start: position, end: position + value.length, type: pattern.type });
       const start = Math.max(0, (match.index ?? 0) - 28);
       const end = Math.min(text.length, (match.index ?? 0) + value.length + 28);
       findings.push({
